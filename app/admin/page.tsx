@@ -52,8 +52,26 @@ export default function AdminPage() {
   })
   const [uploadedImages, setUploadedImages] = useState<string[]>([])
   const [editId, setEditId] = useState<number | null>(null)
-  const [pin, setPin] = useState("")
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
+
+  useEffect(() => {
+    // Check if user is already authenticated (from localStorage)
+    const auth = localStorage.getItem("admin_auth")
+    if (auth) {
+      try {
+        const authData = JSON.parse(auth)
+        if (authData.isAuthenticated) {
+          setIsAuthenticated(true)
+        }
+      } catch (e) {
+        // Invalid JSON in localStorage, ignore
+        localStorage.removeItem("admin_auth")
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const fetchVehicles = async () => {
@@ -304,26 +322,62 @@ export default function AdminPage() {
     setEditId(null)
   }
 
-  const handleLogin = () => {
-    // In a real application, you would validate against the database
-    if (pin === "1234") {
-      setIsAuthenticated(true)
-      toast({
-        title: "Logged in",
-        description: "You are now logged in to the admin panel.",
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginLoading(true)
+
+    try {
+      // For demo purposes, allow a hardcoded login
+      if (username === "admin" && password === "1234") {
+        setIsAuthenticated(true)
+        localStorage.setItem("admin_auth", JSON.stringify({ isAuthenticated: true }))
+        toast({
+          title: "Logged in",
+          description: "You are now logged in to the admin panel.",
+        })
+        return
+      }
+
+      // Otherwise try the API
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
       })
-    } else {
+
+      if (response.ok) {
+        setIsAuthenticated(true)
+        localStorage.setItem("admin_auth", JSON.stringify({ isAuthenticated: true }))
+        toast({
+          title: "Logged in",
+          description: "You are now logged in to the admin panel.",
+        })
+      } else {
+        const data = await response.json()
+        toast({
+          title: "Login failed",
+          description: data.error || "Invalid credentials. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
       toast({
-        title: "Invalid PIN",
-        description: "The PIN you entered is incorrect. Please try again.",
+        title: "Login error",
+        description: "There was a problem logging in. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setLoginLoading(false)
     }
   }
 
   const handleLogout = () => {
     setIsAuthenticated(false)
-    setPin("")
+    localStorage.removeItem("admin_auth")
+    setUsername("")
+    setPassword("")
   }
 
   const handleSeedDatabase = async () => {
@@ -373,27 +427,39 @@ export default function AdminPage() {
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8 text-center">
             <h2 className="text-2xl font-bold mb-4">Admin Login</h2>
-            <p className="mb-6 text-gray-600">Enter your PIN to access the admin panel</p>
+            <p className="mb-6 text-gray-600">Enter your credentials to access the admin panel</p>
 
-            <div className="space-y-4">
-              <div>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  type="password"
-                  placeholder="Enter PIN"
-                  maxLength={4}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
                 />
               </div>
 
-              <Button onClick={handleLogin} className="w-full">
-                Login
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loginLoading}>
+                {loginLoading ? "Logging in..." : "Login"}
               </Button>
 
               <p className="text-sm text-gray-500 mt-4">
-                <strong>Note:</strong> Use Amidn PIN to access
+                <strong>Note:</strong> Use username "admin" and password "1234" for demo access
               </p>
-            </div>
+            </form>
           </div>
         </main>
 
