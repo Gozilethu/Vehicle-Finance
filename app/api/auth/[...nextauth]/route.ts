@@ -1,54 +1,40 @@
-import NextAuth from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
+import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { compare } from "bcryptjs"
 
-const handler = NextAuth({
-  providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const { username, password } = body
+
+    if (!username || !password) {
+      return NextResponse.json({ error: "Missing username or password" }, { status: 400 })
+    }
+
+    const supabase = createServerClient()
+
+    const { data: user, error } = await supabase.from("User").select("*").eq("username", username).single()
+
+    if (error || !user) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    }
+
+    const isPasswordValid = await compare(password, user.password)
+
+    if (!isPasswordValid) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
       },
-      async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
-          return null
-        }
-
-        const supabase = createServerClient()
-
-        const { data: user, error } = await supabase
-          .from("User")
-          .select("*")
-          .eq("username", credentials.username)
-          .single()
-
-        if (error || !user) {
-          return null
-        }
-
-        const isPasswordValid = await compare(credentials.password, user.password)
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: user.id.toString(),
-          name: user.username,
-          email: null,
-        }
-      },
-    }),
-  ],
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/admin/login",
-  },
-})
-
-export { handler as GET, handler as POST }
+    })
+  } catch (error) {
+    console.error("Login error:", error)
+    return NextResponse.json({ error: "An error occurred during login" }, { status: 500 })
+  }
+}
 
