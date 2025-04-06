@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { prisma } from "@/lib/db"
-import { compare } from "bcrypt"
+import { createServerClient } from "@/lib/supabase"
+import { compare } from "bcryptjs"
 
 const handler = NextAuth({
   providers: [
@@ -16,13 +16,15 @@ const handler = NextAuth({
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            username: credentials.username,
-          },
-        })
+        const supabase = createServerClient()
 
-        if (!user) {
+        const { data: user, error } = await supabase
+          .from("User")
+          .select("*")
+          .eq("username", credentials.username)
+          .single()
+
+        if (error || !user) {
           return null
         }
 
