@@ -118,4 +118,4 @@ export async function POST() {
     return NextResponse.json({ error: "Failed to seed database" }, { status: 500 })
   }
 }
-
+}
