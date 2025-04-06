@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import bcrypt from "bcrypt"
+import { hash } from "bcryptjs"
 
 export async function POST() {
   try {
@@ -12,7 +12,7 @@ export async function POST() {
     await supabase.from("User").delete().neq("id", 0)
 
     // Create admin user
-    const hashedPassword = await bcrypt.hash("password123", 10)
+    const hashedPassword = await hash("password123", 10)
 
     const { error: userError } = await supabase.from("User").insert({
       username: "admin",
